@@ -1,7 +1,19 @@
 
-var builder = WebApplication.CreateBuilder(args);
-var app = builder.Build();
+using Microsoft.EntityFrameworkCore;
+using minimal_api.Dominio.DTOs;
+using minimal_api.Infraestrutura.Db;
 
+var builder = WebApplication.CreateBuilder(args);
+
+
+builder.Services.AddDbContext<DbContexto>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("postgresql");
+    options.UseNpgsql(connectionString);
+});
+
+
+var app = builder.Build();
 app.MapGet("/", () => "Good morning!");
 
 app.MapPost("/login", (LoginDTO loginDTO) =>
@@ -14,10 +26,4 @@ app.MapPost("/login", (LoginDTO loginDTO) =>
 
 app.Run();
 
-// DTO class for login
-public class LoginDTO
-{
-  public string Email { get; set; } = default!;
-  public string Senha { get; set; } = default!;
 
-}
