@@ -15,7 +15,7 @@ internal sealed class BearerSecuritySchemeTransformer : IOpenApiDocumentTransfor
             Scheme = "bearer",
             BearerFormat = "JWT",
             In = ParameterLocation.Header,
-            Description = "Insira o token JWT no campo abaixo: Bearer {token}"
+            Description = "Insira o token JWT no campo abaixo: {token}"
         };
 
         foreach (var path in document.Paths)
