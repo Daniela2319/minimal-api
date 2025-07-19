@@ -1,0 +1,45 @@
+name: CI/CD Minimal API
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v3
+
+    - name: Instalar .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x' 
+
+    - name: Restaurar dependências
+      run: dotnet restore minimal-api/minimal-api.csproj
+
+    - name: Buildar aplicação
+      run: dotnet build minimal-api/minimal-api.csproj --configuration Release --no-restore
+
+    - name: Executar testes
+      run: dotnet test minimal-api/minimal-api.csproj --no-build --verbosity normal
+
+    - name: Publicar artefato
+      run: dotnet publish minimal-api/minimal-api.csproj --configuration Release --output ./publish
+
+    - name: Login Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build imagem Docker
+      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/minimal-api:latest minimal-api/
+
+    - name: Push imagem Docker
+      run: docker push ${{ secrets.DOCKER_USERNAME }}/minimal-api:latest
+
