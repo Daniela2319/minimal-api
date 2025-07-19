@@ -37,7 +37,7 @@ namespace minimal_api.Dominio.Servicos
             return _contexto.Veiculos.Where(v => v.Id == id).FirstOrDefault();
         }
 
-        public List<Veiculo> ObterTodos(int pagina = 1, string? nome = null, string? marca = null)
+        public List<Veiculo> ObterTodos(int? pagina = 1, string? nome = null, string? marca = null)
         {
             var query = _contexto.Veiculos.AsQueryable();
             if (!string.IsNullOrEmpty(nome))
@@ -49,9 +49,10 @@ namespace minimal_api.Dominio.Servicos
                 query = query.Where(v => v.Marca.Contains(marca));
             }
             return query
-                .Skip((pagina - 1) * 10)
+                .Skip(((pagina ?? 1) - 1) * 10)
                 .Take(10)
                 .ToList();
+            
 
         }
     }
