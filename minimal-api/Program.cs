@@ -4,11 +4,13 @@ using System.Runtime.Intrinsics.Arm;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using minimal_api.Dominio.DTOs;
 using minimal_api.Dominio.Entidades;
 using minimal_api.Dominio.Enus;
@@ -21,30 +23,33 @@ using Scalar.AspNetCore;
 #region Builder
 var builder = WebApplication.CreateBuilder(args);
 
-var key = builder.Configuration.GetSection("jwt").ToString();
-if (string.IsNullOrEmpty(key)) key = "123456";
+var key = builder.Configuration["JWT:SecretKey"] ?? throw new Exception("Chave JWT não configurada.");
 
-
-builder.Services.AddAuthentication(option =>
-{
-    option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(option =>
-{
-    option.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(option =>
     {
-        ValidateLifetime = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
-    };
-});
+        option.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
 
 builder.Services.AddAuthorization();
 
 
 builder.Services.AddScoped<IAdministradorServico, AdministradorServico>();
 builder.Services.AddScoped<IVeiculoServico, VeiculoServico>();
-builder.Services.AddOpenApi();
 
+
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+});
 
 builder.Services.AddDbContext<DbContexto>(options =>
 {
@@ -56,7 +61,7 @@ var app = builder.Build();
 #endregion
 
 #region Home
-app.MapGet("/", () => Results.Json(new Home())).WithTags("Home");
+app.MapGet("/", () => Results.Json(new Home())).AllowAnonymous().WithTags("Home");
 #endregion  
 
 #region Administrador
@@ -70,13 +75,16 @@ string GerarTokenJwt(Administrador administrador)
     var claims = new List<Claim>()
     {
         new Claim("Email", administrador.Email),
-        new Claim("Perfil", administrador.Perfil)
+        new Claim("Perfil", administrador.Perfil),
+        
     };
+
     var token = new JwtSecurityToken(
         claims: claims,
         expires: DateTime.Now.AddDays(1),
         signingCredentials: credentials
-        );
+    );
+
     return new JwtSecurityTokenHandler().WriteToken(token);
 }
 
@@ -110,7 +118,7 @@ app.MapPost("/administradores/login", ([FromBody]LoginDTO loginDTO, IAdministrad
     }
     else
         return Results.Unauthorized();
-}).WithTags("Administradores");
+}).AllowAnonymous().WithTags("Administradores");
 
 //list
 app.MapGet("/administradores", ([FromQuery] int? pagina, IAdministradorServico administradorServico) =>
@@ -247,14 +255,17 @@ app.MapDelete("/veiculos/{id:int}", (int id, IVeiculoServico veiculoServico) =>
 #endregion
 
 #region App
+
+app.UseAuthentication();
+app.UseAuthorization();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi(); // Expõe o endpoint OpenAPI
-    app.MapScalarApiReference(); // Ativa a interface Scalar
-
-    app.UseAuthentication();
-    app.UseAuthorization();
+    app.MapScalarApiReference(); // Ativa a interface Scalar   
 }
+
+
 
 app.Run();
 #endregion
