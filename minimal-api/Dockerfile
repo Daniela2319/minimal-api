@@ -1,0 +1,1 @@
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS baseWORKDIR /appCOPY . .ENTRYPOINT ["dotnet", "minimal-api.dll"]
